@@ -1,21 +1,42 @@
 # Get the directory where the script is located
 $scriptPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
+$projectRoot = $scriptPath
 
 # Define paths
 $desktopPath = [Environment]::GetFolderPath('Desktop')
-$shortcutName = "SnapsCqq.lnk"
-$shortcutPath = Join-Path $desktopPath $shortcutName
-$targetScript = Join-Path $scriptPath "run-project.ps1"
+$shortcutName = "SnapsCqq"
+$exePath = Join-Path $projectRoot "bin\net481\publish\SnapsCqq.exe"
+
+# Check if exe exists, if not build it
+if (-not (Test-Path $exePath)) {
+    Write-Host "Executable not found. Building release version..." -ForegroundColor Yellow
+
+    # Navigate to project root and run publish command
+    Push-Location $projectRoot
+    dotnet publish -c Release -f net481
+    Pop-Location
+
+    # Verify the exe was created
+    if (-not (Test-Path $exePath)) {
+        Write-Host "Failed to build executable at: $exePath" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "Build completed successfully!" -ForegroundColor Green
+}
 
 # Create shortcut
+$shortcutPath = Join-Path $desktopPath "$shortcutName.lnk"
 $WshShell = New-Object -comObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut($shortcutPath)
-$Shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-$Shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$targetScript`""
-$Shortcut.WorkingDirectory = $scriptPath
+$Shortcut.TargetPath = $exePath
+$Shortcut.WorkingDirectory = (Split-Path -Parent -Path $exePath)
 
 # Optional: Set an icon if you have one
-$Shortcut.IconLocation = Join-Path $scriptPath "cursor-default-click-outline.ico"
+$iconPath = Join-Path $scriptPath "cursor-default-click-outline.ico"
+if (Test-Path $iconPath) {
+    $Shortcut.IconLocation = $iconPath
+}
 
 $Shortcut.Save()
 
